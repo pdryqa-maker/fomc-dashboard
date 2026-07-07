@@ -104,7 +104,7 @@ def run(new_only: bool = True, collect_new: bool = True, log=print) -> dict:
 
     stmts = discover_statements()
     todo = pending_dates(new_only)
-    log(f"[1/3 감성] 대상 {len(todo)}건 " + ("(새 회의)" if new_only else "(전체)"))
+    log(f"[1/4 감성] 대상 {len(todo)}건 " + ("(새 회의)" if new_only else "(전체)"))
 
     ok = 0
     if todo:
@@ -116,14 +116,15 @@ def run(new_only: bool = True, collect_new: bool = True, log=print) -> dict:
                 log(f"    [OK] {date}")
             except Exception as e:
                 log(f"    [실패] {date}: {str(e)[:50]}")
-    log(f"[1/3 감성] 완료 {ok}/{len(todo)}")
+    log(f"[1/4 감성] 완료 {ok}/{len(todo)}")
 
-    market_ok = _step(log, "2/3 시장", "analysis.collect_market")
-    macro_ok = _step(log, "3/3 거시", "analysis.collect_macro")
+    market_ok = _step(log, "2/4 시장", "analysis.collect_market")
+    macro_ok = _step(log, "3/4 거시", "analysis.collect_macro")
+    news_ok = _step(log, "4/4 뉴스", "analysis.collect_news")
 
     log("✅ 갱신 완료.")
-    return {"processed": ok, "attempted": len(todo),
-            "market_ok": market_ok, "macro_ok": macro_ok}
+    return {"processed": ok, "attempted": len(todo), "market_ok": market_ok,
+            "macro_ok": macro_ok, "news_ok": news_ok}
 
 
 def _step(log, tag: str, module: str) -> bool:
