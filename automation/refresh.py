@@ -1,7 +1,7 @@
 """데이터 갱신 에이전트 (오케스트레이터) — 대시보드용.
 
-수동이던 갱신 절차(감성→시장→거시)를 한 번에 실행하는 '갱신 에이전트'.
-검증된 함수(pipeline.run · collect_market · collect_macro)를 순서대로 조율하고
+수동이던 갱신 절차(수집→감성→시장→거시)를 한 번에 실행하는 '갱신 에이전트'.
+검증된 함수(scrape.collect · pipeline.run · collect_market · collect_macro)를 순서대로 조율하고
 각 단계 성공/실패를 로그로 남긴다(한 단계 실패해도 계속). 대시보드가 읽는
 data/fomc.db 에 직접 쓰므로, 실행 후 캐시만 비우면 화면이 갱신된다.
 
@@ -59,8 +59,49 @@ def pending_dates(new_only: bool = True) -> list:
     return dates
 
 
-def run(new_only: bool = True, log=print) -> dict:
-    """감성 → 시장 → 거시 순으로 fomc.db 를 갱신. 결과 요약 dict 반환."""
+# 금리결정 성명문 판별 표지 — 이게 있어야 '회의 성명문'으로 인정.
+# (프레임워크/장기목표·기술 성명문은 이 표현이 없어 자동 제외 → 팀 큐레이션과 일치)
+_RATE_MARKER = "federal funds rate"
+
+
+def _is_rate_decision(path: Path) -> bool:
+    try:
+        return _RATE_MARKER in path.read_text(encoding="utf-8").lower()
+    except OSError:
+        return False
+
+
+def collect_new_statements(log=print) -> list:
+    """Fed 사이트에서 새 FOMC 성명문 수집(data/statements/). 이미 있으면 스킵.
+
+    금리결정 성명문만 유지하고, 프레임워크·기술 성명문(예: 장기목표 성명문)은
+    자동 제외한다(내용에 'federal funds rate' 없음 → 비-회의 문서로 판단, 파일 삭제).
+    """
+    try:
+        from engine import scrape
+        got = scrape.collect(out_dir=str(ROOT / "data" / "statements"), limit=8)
+    except Exception as e:
+        log(f"[수집] 실패(계속 진행): {str(e)[:60]}")
+        return []
+
+    kept = []
+    for date in got:
+        f = ROOT / "data" / "statements" / f"FOMC_statement_{date}.txt"
+        if _is_rate_decision(f):
+            kept.append(date)
+        else:
+            f.unlink(missing_ok=True)   # 비-금리결정(프레임워크/기술) 성명문 제외
+            log(f"    제외 {date}: 금리결정 성명문 아님 → 스킵")
+    log(f"[수집] 신규(금리결정) {len(kept)}건" + (f": {kept}" if kept else " (없음 — 이미 최신)"))
+    return kept
+
+
+def run(new_only: bool = True, collect_new: bool = True, log=print) -> dict:
+    """수집 → 감성 → 시장 → 거시 순으로 fomc.db 를 갱신. 결과 요약 dict 반환."""
+    if collect_new:
+        log("[수집] Fed 사이트에서 새 성명문 확인...")
+        collect_new_statements(log)
+
     stmts = discover_statements()
     todo = pending_dates(new_only)
     log(f"[1/3 감성] 대상 {len(todo)}건 " + ("(새 회의)" if new_only else "(전체)"))
@@ -103,7 +144,8 @@ def main():
     except Exception:
         pass
     new_only = "--all" not in sys.argv[1:]
-    run(new_only=new_only)
+    collect_new = "--no-collect" not in sys.argv[1:]
+    run(new_only=new_only, collect_new=collect_new)
 
 
 if __name__ == "__main__":

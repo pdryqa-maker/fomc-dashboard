@@ -29,7 +29,8 @@ def main():
     except Exception:
         pass
     args = sys.argv[1:]
-    refresh_args = ["--all"] if "--all" in args else []
+    refresh_args = (["--all"] if "--all" in args else []) + \
+                   (["--no-collect"] if "--no-collect" in args else [])
 
     print("=" * 44)
     print("[1/2] 로컬 갱신 — 감성 · 시장 · 거시")

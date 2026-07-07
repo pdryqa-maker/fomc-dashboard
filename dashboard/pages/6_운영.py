@@ -25,8 +25,8 @@ else:
 
 st.divider()
 st.subheader("🔄 전체 데이터 갱신 (에이전트)")
-st.caption("새 FOMC 회의 감성 → 시장(S&P·VIX) → 거시(FRED)를 갱신 에이전트가 한 번에 "
-           "처리해 대시보드 DB에 반영합니다. 끝나면 화면이 자동 새로고침됩니다. "
+st.caption("갱신 에이전트가 **Fed 사이트에서 새 성명문 수집 → 감성 → 시장(S&P·VIX) → 거시(FRED)** "
+           "까지 한 번에 처리해 대시보드 DB에 반영합니다. 끝나면 화면이 자동 새로고침됩니다. "
            "(FinBERT·네트워크 필요, 새 회의 수에 따라 몇 분 소요)")
 
 if not data.can_run_pipeline():
