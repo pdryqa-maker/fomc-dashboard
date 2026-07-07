@@ -24,21 +24,27 @@ else:
     st.dataframe(rn.tail(20).iloc[::-1], width="stretch", hide_index=True)
 
 st.divider()
-st.subheader("새 회의 무인 처리")
-st.caption("리포트가 아직 없는 회의를 찾아 멀티에이전트 파이프라인으로 처리합니다 "
-           "(FinBERT·네트워크 필요, 몇 분 소요될 수 있음).")
+st.subheader("🔄 전체 데이터 갱신 (에이전트)")
+st.caption("새 FOMC 회의 감성 → 시장(S&P·VIX) → 거시(FRED)를 갱신 에이전트가 한 번에 "
+           "처리해 대시보드 DB에 반영합니다. 끝나면 화면이 자동 새로고침됩니다. "
+           "(FinBERT·네트워크 필요, 새 회의 수에 따라 몇 분 소요)")
 
+col_a, col_b = st.columns(2)
 if not data.can_run_pipeline():
-    st.info("이 배포(클라우드·모델 없는 읽기전용)에서는 실행 버튼이 비활성화됩니다. "
+    st.info("이 배포(클라우드·모델 없는 읽기전용)에서는 갱신 버튼이 비활성화됩니다. "
             "로컬에서 `streamlit run dashboard/app.py` 로 띄우면 사용 가능합니다.")
-elif st.button("▶️ 스케줄러 실행 (미처리 회의)", type="primary"):
-    with st.spinner("파이프라인 실행 중... (모델 로드 + 처리)"):
-        env = {**os.environ, "PYTHONUTF8": "1", "SENTIMENT_ENGINE": "finbert"}
-        r = subprocess.run([sys.executable, "agents/scheduler.py"],
-                           cwd=str(data.ROOT), capture_output=True, text=True, env=env)
-    st.code((r.stdout or "") + ("\n[stderr]\n" + r.stderr if r.stderr else ""))
-    data.runs.clear()   # 캐시 무효화 → 최신 성공률 반영
-    st.success("완료. 위 성공률·로그가 갱신됩니다.")
-    st.rerun()
+else:
+    new_only = not col_b.toggle("전체 재처리(느림)", value=False,
+                                help="끄면 새 회의만 처리(빠름). 켜면 모든 회의 재처리.")
+    if col_a.button("▶️ 전체 갱신 실행", type="primary"):
+        args = ["agents/refresh.py"] + ([] if new_only else ["--all"])
+        with st.spinner("갱신 에이전트 실행 중... (감성분석 → 시장 → 거시)"):
+            env = {**os.environ, "PYTHONUTF8": "1", "SENTIMENT_ENGINE": "finbert"}
+            r = subprocess.run([sys.executable] + args,
+                               cwd=str(data.ROOT), capture_output=True, text=True, env=env)
+        st.code((r.stdout or "") + ("\n[stderr]\n" + r.stderr if r.stderr else ""))
+        st.cache_data.clear()   # 대시보드 전체 캐시 비우기 → 새 데이터 반영
+        st.success("갱신 완료. 데이터가 새로고침됩니다.")
+        st.rerun()
 
 st.info(data.DISCLAIMER)
