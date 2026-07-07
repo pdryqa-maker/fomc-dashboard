@@ -25,7 +25,7 @@ def _snapshot_db_path() -> str:
     """커밋된 스냅샷 CSV로 임시 sqlite 재구성 (클라우드 폴백). 1회만 빌드(캐시)."""
     path = Path(tempfile.gettempdir()) / "fomc_snapshot.db"
     con = sqlite3.connect(path)
-    for name in ("meetings", "market", "macro", "sentences"):
+    for name in ("meetings", "market", "macro", "sentences", "news", "news_articles"):
         f = SNAPSHOT / f"{name}.csv"
         if f.exists():
             pd.read_csv(f).to_sql(name, con, if_exists="replace", index=False)
@@ -84,6 +84,45 @@ def has_macro() -> bool:
         n = 0
     con.close()
     return n > 0
+
+
+@st.cache_data(show_spinner=False)
+def has_news() -> bool:
+    con = _con()
+    try:
+        n = con.execute("SELECT COUNT(1) FROM news").fetchone()[0]
+    except sqlite3.OperationalError:
+        n = 0
+    con.close()
+    return n > 0
+
+
+@st.cache_data(show_spinner=False)
+def news() -> pd.DataFrame:
+    """일별 News 감성 지수(+CI)."""
+    con = _con()
+    try:
+        df = pd.read_sql_query(
+            "SELECT date, n_articles, conf_weighted, ci_lo, ci_hi, confidence "
+            "FROM news ORDER BY date", con)
+    except Exception:
+        df = pd.DataFrame()
+    con.close()
+    return df
+
+
+@st.cache_data(show_spinner=False)
+def news_articles(limit: int = 30) -> pd.DataFrame:
+    """최신 뉴스 기사(감성 포함)."""
+    con = _con()
+    try:
+        df = pd.read_sql_query(
+            "SELECT date, title, source, score, p_pos, p_neg FROM news_articles "
+            "ORDER BY date DESC, score DESC LIMIT ?", con, params=(limit,))
+    except Exception:
+        df = pd.DataFrame()
+    con.close()
+    return df
 
 
 @st.cache_data(show_spinner=False)

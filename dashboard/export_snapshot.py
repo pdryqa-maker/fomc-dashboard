@@ -21,6 +21,8 @@ TABLES = {
     "macro": "SELECT date, series, value FROM macro",
     "sentences": ("SELECT date, sentence_idx, sentence, p_pos, p_neu, p_neg, "
                   "score, entropy, model_tag FROM sentences"),
+    "news": "SELECT date, n_articles, conf_weighted, ci_lo, ci_hi, confidence FROM news",
+    "news_articles": "SELECT url, date, title, source, score, p_pos, p_neg FROM news_articles",
 }
 
 
